@@ -1,0 +1,29 @@
+# Render Blueprint — cria a base de dados PostgreSQL e o serviço web (Streamlit) de uma só vez.
+# Render → New → Blueprint → escolher este repositório.
+databases:
+  - name: pm-studio-db
+    databaseName: pm_studio
+    user: pm_studio
+    plan: free
+    region: frankfurt
+
+services:
+  - type: web
+    name: pm-studio
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pm-studio-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
