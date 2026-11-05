@@ -215,6 +215,16 @@ def import_export(p):
             st.error(str(e))
     from core import excel_io
     st.markdown(tr("##### Modelos Excel (do professor ou modelo alargado)", "##### Excel templates (professor's or extended)"))
+    st.caption(tr("Descarregue um modelo em branco, preencha-o no Excel e carregue-o abaixo.", "Download a blank template, fill it in Excel and upload it below."))
+    xl = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    b1, b2, b3 = st.columns(3)
+    b1.download_button(tr("⬇️ StakeholderRegister (professor)", "⬇️ StakeholderRegister (professor)"), excel_io.professor_blank("stakeholders"),
+                       "StakeholderRegister_template.xlsx", xl, help=tr("Modelo original do professor, em branco", "Professor's original template, blank"))
+    b2.download_button(tr("⬇️ RiskRegister (professor)", "⬇️ RiskRegister (professor)"), excel_io.professor_blank("risks"),
+                       "RiskRegister_Template.xlsx", xl, help=tr("Modelo original do professor (a linha de exemplo não é importada)", "Professor's original template (the example row is not imported)"))
+    b3.download_button(tr("⬇️ Modelo alargado em branco", "⬇️ Blank extended template"), excel_io.blank_template(),
+                       tr("Modelo_alargado_em_branco.xlsx", "Extended_template_blank.xlsx"), xl, type="primary",
+                       help=tr("17 folhas (todos os módulos) com listas pendentes, exemplo e instruções", "17 sheets (every module) with drop-downs, example and instructions"))
     x = st.file_uploader(tr("StakeholderRegister, RiskRegister ou modelo alargado (.xlsx)", "StakeholderRegister, RiskRegister or extended template (.xlsx)"), type=["xlsx"])
     mode = st.radio(tr("Modo", "Mode"), ["append", "replace"], horizontal=True,
                     format_func=lambda v: tr("Acrescentar às tabelas atuais", "Append to current tables") if v == "append" else tr("Substituir as tabelas importadas", "Replace imported tables"))
@@ -227,6 +237,11 @@ def import_export(p):
             st.error(str(e))
     st.markdown(tr("##### Atividades (CSV/Excel com colunas id, name, predecessors, optimistic, most_likely, pessimistic, cost…)",
                    "##### Activities (CSV/Excel with columns id, name, predecessors, optimistic, most_likely, pessimistic, cost…)"))
+    c1, c2 = st.columns(2)
+    c1.download_button(tr("⬇️ Modelo de atividades (.xlsx)", "⬇️ Activities template (.xlsx)"), excel_io.activities_template("xlsx"),
+                       tr("Atividades_template.xlsx", "Activities_template.xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    c2.download_button(tr("⬇️ Modelo de atividades (.csv)", "⬇️ Activities template (.csv)"), excel_io.activities_template("csv"),
+                       tr("Atividades_template.csv", "Activities_template.csv"), "text/csv")
     a = st.file_uploader(tr("Ficheiro de atividades", "Activities file"), type=["csv", "xlsx"], key="acts_up")
     if a is not None and st.button(tr("Importar atividades", "Import activities")):
         try:

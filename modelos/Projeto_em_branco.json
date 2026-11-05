@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "meta": {
+    "name": "Novo projeto",
+    "industry": "",
+    "organisation": "",
+    "sponsor": "",
+    "country": "",
+    "description": "",
+    "manager": "",
+    "start_date": "2026-11-01",
+    "currency": "EUR",
+    "time_unit": "weeks",
+    "duration_mode": "pert",
+    "status_date": "2026-11-01",
+    "target_duration": null,
+    "contingency_method": "percent",
+    "contingency_pct": 0.1,
+    "contingency_used": 0.0,
+    "period": "month"
+  },
+  "policy": {
+    "context": "",
+    "content": "",
+    "consequences": ""
+  },
+  "policy_goals": [],
+  "stakeholders": [],
+  "behaviour": [],
+  "problems": [],
+  "strategies": {
+    "criteria": [
+      {
+        "criterion": "Relevância / Relevance",
+        "weight": 3
+      },
+      {
+        "criterion": "Viabilidade técnica / Technical feasibility",
+        "weight": 2
+      },
+      {
+        "criterion": "Custo-benefício / Cost-benefit",
+        "weight": 2
+      },
+      {
+        "criterion": "Sustentabilidade / Sustainability",
+        "weight": 2
+      },
+      {
+        "criterion": "Capacidade institucional / Institutional capacity",
+        "weight": 1
+      }
+    ],
+    "options": [],
+    "selected": ""
+  },
+  "objectives": [],
+  "indicators": [],
+  "benchmarks": [],
+  "timeseries": [],
+  "assumptions": [],
+  "toc": {
+    "vision": "",
+    "context": "",
+    "actors": "",
+    "strategic_choices": "",
+    "learning": ""
+  },
+  "preconditions": [],
+  "risks": [],
+  "activities": [],
+  "raci": {
+    "roles": [
+      "Gestor de projeto",
+      "Equipa técnica",
+      "Patrocinador",
+      "Parceiro"
+    ],
+    "matrix": {}
+  },
+  "budget": [],
+  "procurement": [],
+  "finance": {
+    "equity": 600000.0,
+    "debt": 400000.0,
+    "ke_method": "capm",
+    "ke": 0.1,
+    "rf": 0.03,
+    "beta": 1.1,
+    "mrp": 0.06,
+    "kd": 0.05,
+    "tax": 0.21,
+    "residual_value": 0.0,
+    "reinvest_rate": null,
+    "finance_rate": null,
+    "rate_override": null,
+    "include_contingency": true
+  },
+  "cashflows": [],
+  "pert_scenarios": [],
+  "tracking": [],
+  "evaluation": [],
+  "quality": {},
+  "baseline": null
+}

@@ -1,0 +1,4 @@
+﻿id,name,output_code,type,predecessors,optimistic,most_likely,pessimistic,cost,distribution,responsible,crash_duration,crash_cost
+A1,Diagnóstico e requisitos,1.1,Production,,1.5,2,3,40000,Uniform,Consultor,1.5,47000
+A2,Aquisição de equipamento,1.1,Production,A1,3.0,4,7,180000,Start,Compras,3.0,200000
+A3,Formação dos utilizadores,1.2,Production,A1,4.0,6,9,90000,Uniform,RH,5.0,100000

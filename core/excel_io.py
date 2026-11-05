@@ -620,6 +620,8 @@ def import_workbook(p: dict, file, mode: str = "append") -> str:
         r = 11
         while r < 263:
             desc = ws[f"C{r}"].value
+            if desc and str(desc).strip() == "Political distortion of the project's findings" and str(ws[f"Q{r}"].value or "").startswith("May 2023"):
+                desc = None  # the template's own illustrative example row
             if desc:
                 x = empty_row("risks")
                 x.update({"type": ws[f"B{r}"].value or "Other (rare)", "description": str(desc), "likelihood": inv_l.get(ws[f"D{r}"].value, 2),
@@ -631,10 +633,15 @@ def import_workbook(p: dict, file, mode: str = "append") -> str:
         _merge(p, "risks", rows, mode)
         msgs.append(tr(f"{len(rows)} riscos importados do RiskRegister.", f"{len(rows)} risks imported from RiskRegister."))
     for sn in wb.sheetnames:
-        t = SHEET_TABLE.get(sn.lower())
+        ws = wb[sn]
+        marker = None
+        for coord in ("A1", "A2"):
+            mm = re.search(r"\[table:([a-z_]+)\]", str(ws[coord].value or ""))
+            if mm and mm.group(1) in TABLES:
+                marker = mm.group(1)
+        t = marker or SHEET_TABLE.get(sn.lower())
         if not t:
             continue
-        ws = wb[sn]
         hdr_row = None
         for r in range(1, 12):
             vals = [str(c.value or "") for c in ws[r]]
@@ -649,15 +656,27 @@ def import_workbook(p: dict, file, mode: str = "append") -> str:
             if mm and mm.group(1) in {f for f, _, _ in TABLES[t]}:
                 fields[c.column] = mm.group(1)
         rows = []
+        empties = 0
         for r in range(hdr_row + 1, ws.max_row + 1):
             rec = {f: ws.cell(r, col).value for col, f in fields.items()}
             if not any(v not in (None, "") for v in rec.values()):
-                break
+                if not marker:
+                    break  # exported workbook: a blank row ends the table
+                empties += 1
+                if empties > 50:
+                    break
+                continue
+            empties = 0
             x = empty_row(t)
             x.update({k: v for k, v in rec.items() if v is not None})
             rows.append(_coerce_row(t, x))
+        if not rows:
+            continue
         _merge(p, t, rows, mode)
         msgs.append(f"{sn}: {len(rows)}")
+    if not msgs and any(re.search(r"\[table:", str(wb[sn]["A1"].value or "")) for sn in wb.sheetnames):
+        raise ValueError(tr("O modelo foi reconhecido, mas não tem dados a partir da linha 5 (a linha 3 é só um exemplo).",
+                            "The template was recognised but has no data from row 5 onwards (row 3 is only an example)."))
     if not msgs:
         raise ValueError(tr("Não reconheci o ficheiro: use o StakeholderRegister, o RiskRegister ou o modelo alargado exportado pela app.",
                             "File not recognised: use StakeholderRegister, RiskRegister or the extended template exported by the app."))
@@ -707,3 +726,204 @@ def import_activities(p: dict, file, mode: str = "append") -> int:
         rows.append(_coerce_row("activities", x))
     _merge(p, "activities", rows, mode)
     return len(rows)
+
+
+# =============================================================================== blank templates for upload
+EXAMPLES = {
+    "policy_goals": {"id": "G1", "document": "Estratégia Nacional 2026-2030", "strategic_goal": "Aumentar as exportações em 25% até 2030", "impact_indicator": "Valor das exportações (M€)", "baseline": "1200 (2025)", "target": "1500 (2030)", "source": "INE / Banco Central"},
+    "stakeholders": {"id": "S1", "name": "Ministério X", "type": "Beneficiary", "characteristics": "Decisor político", "interests": "Precisa de dados fiáveis", "capacity_motivation": "Elevada influência", "possible_actions": "Briefings trimestrais", "benefits_to_project": "Apoio político", "benefits_of_project": "Melhores decisões", "engagement": "Consult", "influence": 5, "interest": 4, "attitude": "Supporter"},
+    "behaviour": {"id": "B1", "target_group": "Técnicos do serviço", "perception": 4, "opportunity": 3, "ability": 2, "motivation": 3, "evidence": "Inquérito a 45 técnicos", "implication": "Plano de formação"},
+    "problems": {"id": "C1", "text": "Plataformas de TI inadequadas", "level": "Cause", "parent": "P1", "objective": "Plataformas de TI adequadas", "in_scope": "Sim"},
+    "objectives": {"code": "1.1", "level": "Output", "text": "Plataformas de TI instaladas e operacionais", "parent": "OC1", "source_problem": "C1"},
+    "indicators": {"id": "I1", "objective_code": "OC1", "indicator": "Taxa de discrepância entre fontes de dados", "unit": "%", "baseline": 18, "baseline_year": 2026, "target": 6, "target_year": 2028, "current": 14, "source": "Relatório de qualidade", "frequency": "Semestral", "responsible": "Gestor", "specific": "Sim", "measurable": "Sim", "available": "Sim", "relevant": "Sim", "timely": "Sim"},
+    "benchmarks": {"indicator_id": "I1", "peer": "País vizinho A", "value": 4, "year": 2025, "note": ""},
+    "timeseries": {"indicator_id": "I1", "year": 2024, "value": 19.6},
+    "assumptions": {"id": "H1", "type": "Operational", "objective_code": "1.1", "text": "Os fornecedores entregam o equipamento a tempo", "important": "Sim", "holds": "Possibly", "evidence": "Lições de projetos anteriores", "evidence_quality": 3, "redesign_possible": "Não"},
+    "preconditions": {"id": "C1", "text": "Liderança comprometida com a reforma", "leads_to": "OC1", "assumption": "Direção mantém-se estável"},
+    "activities": {"id": "A1", "name": "Diagnóstico e requisitos", "output_code": "1.1", "type": "Production", "predecessors": "", "optimistic": 1.5, "most_likely": 2, "pessimistic": 3, "cost": 40000, "distribution": "Uniform", "responsible": "Consultor TI", "crash_duration": 1.5, "crash_cost": 47000, "milestone": "Não", "pct_complete": 0, "actual_cost": 0},
+    "budget": {"id": "L1", "activity_id": "A1", "category": "Fees & Direct Expenses", "item": "Consultor sénior", "unit": "dia", "quantity": 40, "unit_cost": 600, "phase": "Inception"},
+    "risks": {"id": "R1", "type": "Human resources", "description": "Rotação elevada dos técnicos formados", "likelihood": 3, "impact": 3, "target_exposure": 4, "existing_mitigation": "Pacto de permanência", "proposed_mitigation": "Plano de retenção", "risk_manager": "Direção", "risk_owner": "Gestor", "review_by": "Trimestral", "review": "", "assumption_id": "H2", "level_affected": "Output", "strategy": "Reduce", "contingency": 15000, "preventive_activity": "A11"},
+    "procurement": {"id": "Q1", "item": "Servidores e licenças", "category": "Goods", "activity_id": "A2", "estimated_cost": 180000, "method": "Competitive Bidding", "planned_date": "2027-03-01", "responsible": "Consultor TI", "selection_criteria": "Preço 40%, técnica 40%, assistência 20%", "risk": "Atrasos de entrega"},
+    "cashflows": {"year": 1, "investment": 120000, "operating_costs": 30000, "benefits": 120000, "note": "Ano 0 = início do projeto"},
+    "tracking": {"date": "2027-06-30", "ev": 300000, "ac": 320000, "note": "Fim do 2.º trimestre"},
+    "evaluation": {"id": "E1", "criterion": "Effectiveness", "question": "Os resultados foram alcançados?", "judgement_criteria": "Metas de I2 e I3 atingidas", "indicator": "I2, I3", "source": "Relatórios", "method": "Análise de séries"},
+}
+
+BLANK_SHEETS = [
+    ("policy_goals", "1 Políticas", "1 Policy", "Objetivos estratégicos e indicadores de impacto", "Strategic goals & impact indicators"),
+    ("stakeholders", "2 Stakeholders", "2 Stakeholders", "Stakeholders (colunas do professor + 4 camadas PCM)", "Stakeholders (professor's columns + 4 PCM layers)"),
+    ("behaviour", "3 Comportamento", "3 Behaviour", "Padrões comportamentais do grupo-alvo (1–5)", "Target-group behavioural patterns (1–5)"),
+    ("problems", "4 Problemas", "4 Problems", "Árvore de problemas e de objetivos (Effect / Core problem / Cause)", "Problem & objective tree (Effect / Core problem / Cause)"),
+    ("objectives", "5 Logframe", "5 Logframe", "Lógica de intervenção: IMP (Impact), OC1 (Outcome), 1.1 (Output)", "Intervention logic: IMP (Impact), OC1 (Outcome), 1.1 (Output)"),
+    ("indicators", "6 Indicadores", "6 Indicators", "Indicadores SMART (baseline, meta, fonte de verificação)", "SMART indicators (baseline, target, source of verification)"),
+    ("benchmarks", "7 Benchmarking", "7 Benchmarking", "Valores de pares por indicador", "Peer values per indicator"),
+    ("timeseries", "8 Séries", "8 Time series", "Série histórica por indicador", "Historical series per indicator"),
+    ("assumptions", "9 Pressupostos", "9 Assumptions", "Pressupostos (objective_code = objetivo que condicionam)", "Assumptions (objective_code = objective they condition)"),
+    ("preconditions", "10 ToC", "10 ToC", "Pré-condições da Teoria da Mudança", "Theory of Change preconditions"),
+    ("activities", "11 Atividades", "11 Activities", "Atividades e variáveis PERT/CPM (a ≤ m ≤ b; predecessoras separadas por vírgulas)", "Activities & PERT/CPM variables (a ≤ m ≤ b; comma-separated predecessors)"),
+    ("budget", "12 Orçamento", "12 Budget", "Linhas de orçamento: quantidade × custo unitário", "Budget lines: quantity × unit cost"),
+    ("risks", "13 Riscos", "13 Risks", "Registo de riscos alargado (probabilidade e impacto 1–4)", "Extended risk register (likelihood & impact 1–4)"),
+    ("procurement", "14 Procurement", "14 Procurement", "Plano de procurement", "Procurement plan"),
+    ("cashflows", "15 Fluxos", "15 Cash flows", "Fluxos de caixa anuais para VAL/TIR/MIRR (ano 0 = início)", "Annual cash flows for NPV/IRR/MIRR (year 0 = start)"),
+    ("tracking", "16 Controlo EVM", "16 EVM tracking", "Histórico de EV e AC acumulados por data de controlo", "History of cumulative EV and AC per status date"),
+    ("evaluation", "17 Avaliação", "17 Evaluation", "Matriz de avaliação OCDE-CAD", "OECD-DAC evaluation matrix"),
+]
+
+
+def _yesno():
+    return ("Sim", "Não") if _pt() else ("Yes", "No")
+
+
+def blank_template() -> bytes:
+    """Empty extended template to fill in Excel and upload into the app (Home → Import)."""
+    from .ui import LABELS
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Leia-me" if _pt() else "Read-me"
+    lines = [
+        (tr("Modelo alargado em branco — PM Studio", "Blank extended template — PM Studio"), 14, True),
+        ("", 10, False),
+        (tr("Como usar", "How to use"), 11, True),
+        (tr("1. Preencha as folhas que precisar (não é obrigatório preencher todas). Comece na linha 5, por baixo dos cabeçalhos.", "1. Fill in the sheets you need (not all are required). Start on row 5, below the headers."), 10, False),
+        (tr("2. A linha 3 de cada folha (a cinzento) é um EXEMPLO de preenchimento — não é importada.", "2. Row 3 of each sheet (grey) is a filling EXAMPLE — it is not imported."), 10, False),
+        (tr("3. Não altere os cabeçalhos da linha 4: o código entre [ ] identifica o campo na app.", "3. Do not change the row-4 headers: the code in [ ] identifies the field in the app."), 10, False),
+        (tr("4. Use as listas pendentes; os códigos aceites e a tradução estão na folha 'Listas'.", "4. Use the drop-down lists; accepted codes and translations are in the 'Lists' sheet."), 10, False),
+        (tr("5. Na app: Início → Importar/exportar → 'Modelos Excel' → carregar este ficheiro → escolher Acrescentar ou Substituir.", "5. In the app: Home → Import/export → 'Excel templates' → upload this file → choose Append or Replace."), 10, False),
+        ("", 10, False),
+        (tr("Regras essenciais", "Key rules"), 11, True),
+        (tr("• IDs curtos e únicos: S1 (stakeholders), P1/C1/E1 (problemas), I1 (indicadores), H1 (pressupostos), A1 (atividades), R1 (riscos), Q1 (aquisições).", "• Short unique IDs: S1 (stakeholders), P1/C1/E1 (problems), I1 (indicators), H1 (assumptions), A1 (activities), R1 (risks), Q1 (purchases)."), 10, False),
+        (tr("• Logframe: códigos IMP (impacto), OC1, OC2 (outcomes), 1.1, 1.2, 2.1 (outputs); 'parent' = código do nível superior.", "• Logframe: codes IMP (impact), OC1, OC2 (outcomes), 1.1, 1.2, 2.1 (outputs); 'parent' = upper-level code."), 10, False),
+        (tr("• Pressupostos: Output → Operational; Outcome → Behavioural; Impact → Political (objetivo que o pressuposto condiciona).", "• Assumptions: Output → Operational; Outcome → Behavioural; Impact → Political (objective the assumption conditions)."), 10, False),
+        (tr("• Atividades: otimista ≤ mais provável ≤ pessimista, na unidade de tempo do projeto; predecessoras ex.: 'A1, A3'.", "• Activities: optimistic ≤ most likely ≤ pessimistic, in the project time unit; predecessors e.g. 'A1, A3'."), 10, False),
+        (tr("• Riscos: probabilidade e impacto de 1 (baixo) a 4 (alto); exposição = P × I (calculada pela app).", "• Risks: likelihood and impact from 1 (low) to 4 (high); exposure = L × I (computed by the app)."), 10, False),
+        (tr("• Percentagens em fração (0,25 = 25%). Datas no formato AAAA-MM-DD.", "• Percentages as fractions (0.25 = 25%). Dates as YYYY-MM-DD."), 10, False),
+        ("", 10, False),
+        (tr("Os modelos do professor (StakeholderRegister e RiskRegister) podem ser carregados tal como estão, em alternativa às folhas 2 e 13.", "The professor's templates (StakeholderRegister and RiskRegister) can be uploaded as they are, as an alternative to sheets 2 and 13."), 10, False),
+    ]
+    for i, (t, sz, b) in enumerate(lines, 1):
+        c = ws.cell(i, 1, t)
+        _font(c, bold=b, size=sz)
+        c.alignment = Alignment(wrap_text=True)
+    ws.column_dimensions["A"].width = 140
+
+    # Lists sheet
+    wl = wb.create_sheet("Listas" if _pt() else "Lists")
+    col = 1
+    for name, rows in OPTIONS.items():
+        if name in ("raci",):
+            continue
+        wl.cell(1, col, name)
+        _font(wl.cell(1, col), bold=True, color="FFFFFF")
+        wl.cell(1, col).fill = HDR
+        wl.cell(1, col + 1, "PT")
+        _font(wl.cell(1, col + 1), bold=True, color="FFFFFF")
+        wl.cell(1, col + 1).fill = HDR
+        for k, r in enumerate(rows, 2):
+            wl.cell(k, col, r[0])
+            wl.cell(k, col + 1, r[-1])
+        wl.column_dimensions[L(col)].width = 26
+        wl.column_dimensions[L(col + 1)].width = 30
+        col += 3
+
+    yes, no = _yesno()
+    grey = PatternFill("solid", fgColor="EDEDED")
+    inp = PatternFill("solid", fgColor="FFFFF0")
+    for table, spt, sen, dpt, den in BLANK_SHEETS:
+        ws = wb.create_sheet(spt if _pt() else sen)
+        spec = TABLES[table]
+        ws["A1"] = f"{dpt if _pt() else den}   [table:{table}]"
+        _font(ws["A1"], bold=True, size=13)
+        ws["A2"] = tr("Linha 3 = exemplo (não é importado). Preencha a partir da linha 5. Não altere a linha 4.", "Row 3 = example (not imported). Fill in from row 5. Do not change row 4.")
+        _font(ws["A2"], italic=True, color="595959")
+        ex = EXAMPLES.get(table, {})
+        for j, (f, kind, _d) in enumerate(spec, 1):
+            v = ex.get(f, "")
+            c = ws.cell(3, j, v)
+            _font(c, italic=True, color="7F7F7F")
+            c.fill = grey
+            lab = LABELS.get(f, (f, f))[0 if _pt() else 1]
+            h = ws.cell(4, j, f"{lab} [{f}]")
+            _font(h, bold=True, color="FFFFFF")
+            h.fill = HDR
+            h.alignment = Alignment(wrap_text=True, vertical="center")
+            h.border = BD
+            for r in range(5, 105):
+                cc = ws.cell(r, j)
+                cc.border = BD
+                cc.fill = inp
+                _font(cc, color="0000FF")
+                if kind == "long":
+                    cc.alignment = Alignment(wrap_text=True, vertical="top")
+            rng = f"{L(j)}5:{L(j)}104"
+            if kind.startswith("sel:"):
+                _dv(ws, rng, [str(o[0]) for o in OPTIONS[kind[4:]]])
+            elif kind in ("scale5", "scale4"):
+                dv = DataValidation(type="whole", operator="between", formula1="1", formula2="5" if kind == "scale5" else "4", allow_blank=True,
+                                    showErrorMessage=True, error=tr("Valor inteiro entre 1 e ", "Whole number between 1 and ") + ("5" if kind == "scale5" else "4"))
+                ws.add_data_validation(dv)
+                dv.add(rng)
+            elif kind == "bool":
+                _dv(ws, rng, [yes, no])
+            elif kind in ("num", "int"):
+                dv = DataValidation(type="decimal", allow_blank=True, operator="greaterThanOrEqual", formula1="-1000000000000",
+                                    showErrorMessage=True, error=tr("Introduza um número", "Enter a number"))
+                ws.add_data_validation(dv)
+                dv.add(rng)
+                if f in ("cost", "actual_cost", "crash_cost", "estimated_cost", "unit_cost", "contingency", "investment", "operating_costs", "benefits", "ev", "ac"):
+                    for r in range(5, 105):
+                        ws.cell(r, j).number_format = '#,##0'
+                if f == "pct_complete":
+                    for r in range(5, 105):
+                        ws.cell(r, j).number_format = "0%"
+            w = 42 if kind == "long" else 9 if f in ("id", "code") else 14 if kind in ("num", "int", "scale5", "scale4", "bool") else 22
+            ws.column_dimensions[L(j)].width = w
+        ws.row_dimensions[4].height = 34
+        ws.freeze_panes = "A5"
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
+
+
+def activities_template(fmt: str = "xlsx") -> bytes:
+    """Standalone activities file (for 'Import activities'); 3 example rows to replace."""
+    cols = ["id", "name", "output_code", "type", "predecessors", "optimistic", "most_likely", "pessimistic", "cost", "distribution", "responsible", "crash_duration", "crash_cost"]
+    ex = [["A1", "Diagnóstico e requisitos", "1.1", "Production", "", 1.5, 2, 3, 40000, "Uniform", "Consultor", 1.5, 47000],
+          ["A2", "Aquisição de equipamento", "1.1", "Production", "A1", 3, 4, 7, 180000, "Start", "Compras", 3, 200000],
+          ["A3", "Formação dos utilizadores", "1.2", "Production", "A1", 4, 6, 9, 90000, "Uniform", "RH", 5, 100000]]
+    df = pd.DataFrame(ex, columns=cols)
+    if fmt == "csv":
+        return df.to_csv(index=False).encode("utf-8-sig")
+    from .ui import LABELS
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Atividades" if _pt() else "Activities"
+    kinds = {f: k for f, k, _ in TABLES["activities"]}
+    for j, f in enumerate(cols, 1):
+        h = ws.cell(1, j, f"{LABELS.get(f, (f, f))[0 if _pt() else 1]} [{f}]")
+        _font(h, bold=True, color="FFFFFF")
+        h.fill = HDR
+        h.alignment = Alignment(wrap_text=True)
+        ws.column_dimensions[L(j)].width = 30 if f == "name" else 14
+        for i, row in enumerate(ex, 2):
+            c = ws.cell(i, j, row[j - 1])
+            _font(c, color="0000FF")
+        if kinds[f].startswith("sel:"):
+            _dv(ws, f"{L(j)}2:{L(j)}300", [str(o[0]) for o in OPTIONS[kinds[f][4:]]])
+    ws.row_dimensions[1].height = 32
+    ws.freeze_panes = "A2"
+    note = wb.create_sheet("Leia-me" if _pt() else "Read-me")
+    for i, t in enumerate([tr("As linhas 2–4 da folha de atividades são EXEMPLOS: substitua-as pelas suas atividades.", "Rows 2–4 of the activities sheet are EXAMPLES: replace them with your activities."),
+                           tr("Não altere os cabeçalhos (o código entre [ ] identifica o campo).", "Do not change the headers (the code in [ ] identifies the field)."),
+                           tr("Predecessoras separadas por vírgulas (ex.: A1, A3). Durações na unidade de tempo do projeto; otimista ≤ mais provável ≤ pessimista.", "Comma-separated predecessors (e.g. A1, A3). Durations in the project time unit; optimistic ≤ most likely ≤ pessimistic."),
+                           tr("Importar na app: Início → Importar/exportar → 'Atividades'.", "Import in the app: Home → Import/export → 'Activities'.")], 1):
+        note.cell(i, 1, t)
+    note.column_dimensions["A"].width = 120
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
+
+
+def professor_blank(which: str) -> bytes:
+    path = os.path.join(TPL, "StakeholderRegister_template.xlsx" if which == "stakeholders" else "RiskRegister_Template.xlsx")
+    with open(path, "rb") as fh:
+        return fh.read()
