@@ -6,7 +6,7 @@ import streamlit as st
 from core import analysis as AN
 from core import ui
 from core.i18n import opt_label, tr
-from core.matrix import logframe_html
+from core.matrix import logframe_classic_html, logframe_html
 from core.model import expected_assumption_type, objective_level
 
 
@@ -20,7 +20,30 @@ def logframe():
     t1, t2, t3 = st.tabs([tr("🧩 Matriz", "🧩 Matrix"), tr("✏️ Lógica de intervenção (vertical)", "✏️ Intervention logic (vertical)"),
                           tr("📏 Indicadores e pressupostos", "📏 Indicators & assumptions")])
     with t1:
-        st.markdown(logframe_html(p), unsafe_allow_html=True)
+        lf = p.setdefault("logframe", {"preconditions": "", "terminology": "pcm"})
+        c1, c2 = st.columns(2)
+        view = c1.segmented_control(tr("Vista", "View"), ["classic", "extended"], default="classic", key="lf_view",
+                                    format_func=lambda v: tr("Clássica 4×4 (PCM)", "Classic 4×4 (PCM)") if v == "classic" else tr("Alargada (UE: baseline, meta, critério)", "Extended (EU: baseline, target, criterion)"))
+        terms = c2.segmented_control(tr("Terminologia", "Terminology"), ["pcm", "results"], default=lf.get("terminology", "pcm"), key="lf_terms",
+                                     format_func=lambda v: tr("Objetivo global / específico / resultados", "Overall / specific objective / results") if v == "pcm" else "Impact / Outcome / Output")
+        if terms and terms != lf.get("terminology"):
+            lf["terminology"] = terms
+            ui.mark_dirty()
+        if (view or "classic") == "classic":
+            st.markdown(logframe_classic_html(p, lf.get("terminology", "pcm")), unsafe_allow_html=True)
+            st.caption(tr("Formato clássico do PCM (4 colunas). Na linha das atividades, a 2.ª e a 3.ª colunas mostram os **meios** e os **custos** (do orçamento). "
+                          "Os indicadores mostram baseline → meta, mantendo a formulação neutra do indicador.",
+                          "Classic PCM format (4 columns). In the activities row, the 2nd and 3rd columns show **means** and **costs** (from the budget). "
+                          "Indicators show baseline → target, keeping the indicator wording neutral."))
+            pre = st.text_area(tr("Pré-condições (uma por linha) — condições a cumprir antes de as atividades começarem", "Pre-conditions (one per line) — conditions to be met before activities start"),
+                               lf.get("preconditions", ""), height=90, key=f"lf_pre_{st.session_state.dv}",
+                               placeholder=tr("Ex.: Acordo de financiamento assinado\nEquipa de projeto nomeada", "E.g.: Financing agreement signed\nProject team appointed"))
+            if pre != lf.get("preconditions", ""):
+                lf["preconditions"] = pre
+                ui.mark_dirty()
+                st.rerun()
+        else:
+            st.markdown(logframe_html(p), unsafe_allow_html=True)
         st.caption(tr("Leitura diagonal: Atividades + pressupostos operacionais → Outputs; Outputs + comportamentais → Outcomes; Outcomes + políticos → Impacto. "
                       "Os pressupostos aparecem na linha imediatamente abaixo do nível que condicionam.",
                       "Diagonal reading: Activities + operational assumptions → Outputs; Outputs + behavioural → Outcomes; Outcomes + political → Impact. "

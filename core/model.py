@@ -110,7 +110,7 @@ def new_project(name: str = "Novo projeto", industry: str = "") -> dict:
                     "beta": 1.1, "mrp": 0.06, "kd": 0.05, "tax": 0.21, "residual_value": 0.0,
                     "reinvest_rate": None, "finance_rate": None, "rate_override": None,
                     "include_contingency": True},
-        "cashflows": [], "pert_scenarios": [], "tracking": [], "evaluation": [], "quality": {}, "baseline": None,
+        "logframe": {"preconditions": "", "terminology": "pcm"}, "cashflows": [], "pert_scenarios": [], "tracking": [], "evaluation": [], "quality": {}, "baseline": None,
     }
 
 

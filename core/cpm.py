@@ -244,7 +244,11 @@ def crash_data(acts: list[dict], dur: dict[str, float], costs: dict[str, float])
         cd = a.get("crash_duration")
         cc = a.get("crash_cost")
         cd = _num(cd, d) if cd not in (None, "") else d
+        if cd <= 0 and d > 0:  # 0 / empty means "no crashing data"
+            cd = d
         cc = _num(cc, costs.get(i, 0)) if cc not in (None, "") else costs.get(i, 0)
+        if cc <= 0:
+            cc = costs.get(i, 0)
         cd = min(cd, d)
         max_red = max(0.0, d - cd)
         slope = (cc - costs.get(i, 0)) / max_red if max_red > 1e-9 else float("inf")

@@ -17,6 +17,13 @@ Interface **bilingue (PT/EN)**. Persistência em **PostgreSQL** no Render, ou **
 | **5 · M&A** | Indicadores SMART · Baselines/metas/benchmarking · EVM · Qualidade e avaliação | SMART e CREAM, progresso face à meta, metas baseadas em evidência (pares, top performer, tendência), EVM completo (PV, EV, AC, CPI, SPI, EAC, ETC, VAC, TCPI), atributos de qualidade do PCM, matriz de avaliação OCDE-CAD |
 | **6 · Relatórios e IA** | Relatório e exportações · Agente IA | Relatório HTML interpretativo; **modelos Excel do professor no formato original**; **modelo alargado** com fórmulas; agente que gera projetos, extrai informação de documentos Word/PDF, revê a coerência e conversa sobre o projeto |
 
+**Destaques das duas matrizes principais:**
+- **Quadro lógico:** duas vistas.
+  - **Clássica 4×4 (PCM):** lógica de intervenção, indicadores objetivamente verificáveis, fontes e meios de verificação, pressupostos. Os meios e custos aparecem na linha das atividades e as pré-condições no fim.
+  - **Alargada (modelo UE):** baseline, meta, ano de referência e critério de avaliação.
+  - A terminologia é configurável: "objetivo global / específico / resultados" ou "Impact / Outcome / Output".
+- **Matriz de risco:** escala 4×4 do professor, legenda das zonas de cor com a **ação exigida** (crítico: ação imediata; alto: mitigação ativa; médio: planear contingência; baixo: monitorizar), tabela de ação por risco e alertas de incoerência (ex.: risco alto com estratégia "Aceitar").
+
 Cada página tem uma **legenda** ("o que é", "como se lê", "fontes") e uma **interpretação automática** dos resultados, baseada em regras, que funciona sem chave de IA. O painel inicial faz uma **verificação de coerência entre módulos**.
 
 **Projetos exemplo:**
@@ -171,6 +178,7 @@ Confirme no GitHub que **não** aparecem as pastas `.venv/` e `data/`, nem o fic
       | `PYTHON_VERSION` | `3.13.5` |
       | `ANTHROPIC_API_KEY` | *(a sua chave — opcional)* |
       | `ANTHROPIC_MODEL` | `claude-sonnet-5-5` |
+      | `ANTHROPIC_EFFORT` | `medium` |
    5. Clique em **Create Web Service**.
 
 > A app converte automaticamente o prefixo `postgres://` ou `postgresql://` do Render para o driver `psycopg2`, e cria as tabelas (`projects`, `snapshots`) no primeiro arranque.
@@ -222,12 +230,24 @@ git push
 | Barra lateral mostra *SQLite (local)* no Render | Falta `DATABASE_URL` no serviço web |
 | `could not translate host name` | Usou o Internal URL com a app noutra região: ponha os dois serviços na mesma região, ou use o External URL |
 | Agente IA desativado | Defina `ANTHROPIC_API_KEY` (Render → *Environment*) e faça *Manual Deploy → Restart* |
+| Agente lento ou "resposta incompleta" | A geração de um projeto completo corre em 4 etapas (1,5–4 min). Para respostas mais rápidas use `ANTHROPIC_EFFORT=low`; para mais profundidade, `high` |
 | Erro de modelo no agente | Ajuste `ANTHROPIC_MODEL` para um modelo disponível na sua conta (ver https://docs.claude.com) |
 | Diagramas não aparecem no relatório HTML | O relatório carrega Plotly e Graphviz (viz.js) por CDN: abra-o com ligação à internet |
 
 ---
 
-## 7. Bibliografia
+## 7. Agente IA — tempos de resposta (testados)
+| Função | Tempo típico |
+|---|---|
+| Conversar | ~10 s |
+| Extrair de documento (um módulo) | ~10 s |
+| Síntese para o relatório | ~20 s |
+| Gerar projeto completo (4 etapas, com barra de progresso) | 1,5–4 min |
+| Revisão crítica completa | ~3 min |
+
+**Segurança:** a chave da API fica apenas no ficheiro `.env` (local) ou nas variáveis de ambiente do Render. Nunca a coloque no código nem no GitHub.
+
+## 8. Bibliografia
 - European Commission – EuropeAid (2004). *Aid Delivery Methods, Vol. 1: Project Cycle Management Guidelines*.
 - European Commission – CoEPM² (2016). *The PM² Project Management Methodology Guide – Open Edition*.
 - van Es, M., Guijt, I. & Vogel, I. (2015). *Hivos ToC Guidelines – Theory of Change Thinking in Practice*.

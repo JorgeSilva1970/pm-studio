@@ -108,9 +108,13 @@ def agent():
         mods = st.multiselect(tr("Módulos a gerar", "Modules to generate"), AG.GEN_TABLES, default=AG.GEN_TABLES)
         inc_meta = st.checkbox(tr("Incluir dados gerais, políticas e ToC", "Include general data, policy and ToC"), value=True)
         if st.button(tr("🏗️ Gerar rascunho", "🏗️ Generate draft"), type="primary", disabled=not desc.strip()):
-            with st.spinner(tr("O agente está a desenhar o projeto (pode demorar 1–2 minutos)…", "The agent is designing the project (may take 1–2 minutes)…")):
+            with st.spinner(tr("O agente está a desenhar o projeto (4 etapas; pode demorar 3–6 minutos)…", "The agent is designing the project (4 steps; may take 3–6 minutes)…")):
                 try:
-                    st.session_state["ai_draft"] = AG.generate(desc + ("" if inc_meta else "\n(Do not return meta/policy/toc.)"), p, mods, st.session_state.ai_model)
+                    bar = st.progress(0.0)
+                    def prog(i, n, tabs):
+                        bar.progress(i / n, text=tr(f"Etapa {i + 1}/{n}: ", f"Step {i + 1}/{n}: ") + ", ".join(tabs))
+                    st.session_state["ai_draft"] = AG.generate(desc, p, mods, st.session_state.ai_model, progress=prog, with_meta=inc_meta)
+                    bar.progress(1.0, text=tr("Concluído", "Done"))
                 except Exception as e:
                     st.error(tr(f"Erro: {e}", f"Error: {e}"))
         _draft_apply("ai_draft")
@@ -127,8 +131,12 @@ def agent():
                 source = AG.docx_text(f) if n.endswith(".docx") else AG.pdf_text(f) if n.endswith(".pdf") else f.read().decode("utf-8", "ignore")
             with st.spinner(tr("A extrair…", "Extracting…")):
                 try:
+                    bar = st.progress(0.0)
+                    def prog2(i, n, tabs):
+                        bar.progress(i / n, text=tr(f"Etapa {i + 1}/{n}: ", f"Step {i + 1}/{n}: ") + ", ".join(tabs))
                     st.session_state["ai_extract"] = AG.generate(tr("Extrair do documento a informação do projeto.", "Extract the project information from the document."), p, mods,
-                                                                 st.session_state.ai_model, source_text=source)
+                                                                 st.session_state.ai_model, source_text=source, progress=prog2, with_meta=False)
+                    bar.progress(1.0, text=tr("Concluído", "Done"))
                 except Exception as e:
                     st.error(tr(f"Erro: {e}", f"Error: {e}"))
         _draft_apply("ai_extract")

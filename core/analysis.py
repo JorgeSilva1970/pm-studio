@@ -230,6 +230,26 @@ def risk_level(e: int) -> str:
     return tr("Baixo", "Low")
 
 
+RISK_ZONES = [  # (min exposure, colour, level pt/en, required action pt/en)
+    (12, "#C0392B", ("Crítico", "Critical"), ("Ação imediata: tratar já, escalar ao comité de pilotagem/patrocinador e rever semanalmente.",
+                                             "Immediate action: treat now, escalate to the steering committee/sponsor and review weekly.")),
+    (8, "#E67E22", ("Alto", "High"), ("Mitigação ativa: medidas preventivas com responsável e prazo; incluir atividade de prevenção no plano.",
+                                      "Active mitigation: preventive measures with owner and deadline; add a prevention activity to the plan.")),
+    (4, "#F1C40F", ("Médio", "Medium"), ("Atenção: planear contingência (custo/tempo) e rever em cada período de reporte.",
+                                         "Attention: plan contingency (cost/time) and review at every reporting period.")),
+    (0, "#27AE60", ("Baixo", "Low"), ("Tolerável: aceitar e apenas monitorizar.", "Tolerable: accept and monitor only.")),
+]
+
+
+def risk_zone(e: int) -> tuple:
+    return next(z for z in RISK_ZONES if e >= z[0])
+
+
+def risk_action(e: int) -> str:
+    z = risk_zone(e)
+    return tr(*z[3])
+
+
 def risk_color(e: int) -> str:
     return "#C0392B" if e >= 12 else "#E67E22" if e >= 8 else "#F1C40F" if e >= 4 else "#27AE60"
 

@@ -231,6 +231,59 @@ def extended_workbook(p: dict) -> bytes:
         rows.append(["Activity", a["id"], a.get("name"), a.get("output_code"), "", "", "", "", "", "Efficiency"])
     _table(ws, 4, hdr, rows, {1: 10, 2: 8, 3: 45, 4: 8, 5: 40, 6: 12, 7: 12, 8: 30, 9: 45, 10: 18}, wrap_cols=(3, 5, 6, 7, 8, 9))
 
+    # classic 4x4 logframe (PCM)
+    from .matrix import TERMS, means_and_costs
+    from .model import MATRIX_ROW_OF_ASSUMPTION
+    terms = (p.get("logframe") or {}).get("terminology", "pcm")
+    ws = wb.create_sheet(tr("Quadro lógico 4x4", "Logframe 4x4"))
+    _title(ws, tr("Matriz do Quadro Lógico — formato clássico 4×4 (PCM)", "Logical Framework Matrix — classic 4×4 format (PCM)"))
+    heads = ["", tr("Lógica de intervenção", "Intervention logic"), tr("Indicadores objetivamente verificáveis", "Objectively verifiable indicators"),
+             tr("Fontes e meios de verificação", "Sources and means of verification"), tr("Pressupostos", "Assumptions")]
+    for j, h in enumerate(heads, 1):
+        c = ws.cell(4, j, h)
+        _font(c, bold=True, color="FFFFFF")
+        c.fill = HDR
+        c.alignment = Alignment(wrap_text=True, vertical="center")
+        c.border = BD
+    lvl_of = {str(o["code"]): o["level"] for o in p["objectives"]}
+    row_asm = {}
+    for h in p["assumptions"]:
+        rl = MATRIX_ROW_OF_ASSUMPTION.get(lvl_of.get(str(h.get("objective_code") or "")))
+        row_asm.setdefault(rl, []).append(f"{h['id']}: {h['text']}")
+    fills = {"Impact": "B03A2E", "Outcome": "D9822B", "Output": "C9A227", "Activity": "3C8DBC"}
+    r = 5
+    for lvl in ("Impact", "Outcome", "Output"):
+        items = [o for o in p["objectives"] if o["level"] == lvl]
+        il = [i for o in items for i in p["indicators"] if str(i.get("objective_code")) == str(o["code"])]
+        vals = [TERMS[terms][lvl][0 if _pt() else 1], "\n".join(f"{o['code']} {o['text']}" for o in items),
+                "\n".join(f"{i['id']} {i['indicator']}: {i.get('baseline')} ({i.get('baseline_year') or '—'}) → {i.get('target')} ({i.get('target_year') or '—'})" for i in il),
+                "\n".join(f"{i['id']} {i.get('source') or ''}" for i in il),
+                tr("(não aplicável)", "(not applicable)") if lvl == "Impact" else "\n".join(row_asm.get(lvl, []))]
+        for j, v in enumerate(vals, 1):
+            c = ws.cell(r, j, v)
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+            c.border = BD
+            _font(c, bold=(j == 1), color="FFFFFF" if j == 1 else None)
+        ws.cell(r, 1).fill = PatternFill("solid", fgColor=fills[lvl])
+        r += 1
+    cats, total = means_and_costs(p)
+    acts_txt = "\n".join(f"{a['id']} {a.get('name')}" + (f" [{a.get('output_code')}]" if a.get("output_code") else "") for a in p["activities"])
+    vals = [TERMS[terms]["Activity"][0 if _pt() else 1], acts_txt, tr("Meios:", "Means:") + "\n" + "\n".join(f"• {k}" for k, _v in cats),
+            tr("Custos:", "Costs:") + "\n" + "\n".join(f"{k}: {v:,.0f}" for k, v in cats) + f"\nTotal: {total:,.0f}", "\n".join(row_asm.get("Activity", []))]
+    for j, v in enumerate(vals, 1):
+        c = ws.cell(r, j, v)
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+        c.border = BD
+        _font(c, bold=(j == 1), color="FFFFFF" if j == 1 else None)
+    ws.cell(r, 1).fill = PatternFill("solid", fgColor=fills["Activity"])
+    r += 1
+    c = ws.cell(r, 5, tr("Pré-condições:", "Pre-conditions:") + "\n" + str((p.get("logframe") or {}).get("preconditions", "")))
+    c.alignment = Alignment(wrap_text=True, vertical="top")
+    c.border = BD
+    c.fill = PatternFill("solid", fgColor="FFF8DC")
+    for j, w in enumerate([18, 48, 52, 36, 44], 1):
+        ws.column_dimensions[L(j)].width = w
+
     # indicators
     ws = wb.create_sheet("Indicadores")
     _title(ws, tr("Indicadores SMART", "SMART indicators"))
@@ -439,8 +492,11 @@ def extended_workbook(p: dict) -> bytes:
     ws = wb.create_sheet("Riscos")
     _title(ws, tr("Registo de riscos (alargado)", "Risk register (extended)"), tr("Exposição = probabilidade × impacto (1–16)", "Exposure = likelihood × impact (1–16)"))
     f9 = [f for f, _, _ in TABLES["risks"]]
-    hdr = [(LABELS.get(f, (f, f))[0 if _pt() else 1], f) for f in f9] + [(tr("Exposição", "Exposure"), ""), (tr("Acima do alvo?", "Above target?"), "")]
-    rows = [[x.get(f) for f in f9] + [f"=D{5 + k}*E{5 + k}", f'=IF(R{5 + k}>F{5 + k},"⚠","")'] for k, x in enumerate(p["risks"])]
+    hdr = [(LABELS.get(f, (f, f))[0 if _pt() else 1], f) for f in f9] + [(tr("Exposição", "Exposure"), ""), (tr("Acima do alvo?", "Above target?"), ""),
+                                                                         (tr("Ação exigida (zona)", "Required action (zone)"), "")]
+    zt = [tr(*z[3]) for z in AN.RISK_ZONES]
+    rows = [[x.get(f) for f in f9] + [f"=D{5 + k}*E{5 + k}", f'=IF(R{5 + k}>F{5 + k},"⚠","")',
+                                      f'=IF(R{5 + k}>=12,"{zt[0]}",IF(R{5 + k}>=8,"{zt[1]}",IF(R{5 + k}>=4,"{zt[2]}","{zt[3]}")))'] for k, x in enumerate(p["risks"])]
     last = _table(ws, 4, hdr, rows, {3: 40, 7: 30, 8: 30, 12: 30}, wrap_cols=(3, 7, 8, 12))
     if rows:
         ws.conditional_formatting.add(f"R5:R{last}", ColorScaleRule(start_type="num", start_value=1, start_color="63BE7B", mid_type="num", mid_value=8, mid_color="FFEB84", end_type="num", end_value=16, end_color="F8696B"))

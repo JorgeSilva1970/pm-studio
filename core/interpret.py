@@ -221,6 +221,20 @@ def risk_text(risks: list[dict]) -> str:
     above = [r for r in risks if AN.exposure(r) > int(r.get("target_exposure") or 16)]
     txt = tr(f"Registo com **{len(risks)} riscos**: {len(crit)} críticos (exposição ≥ 12) e {len(high)} altos (8–11). ",
              f"Register with **{len(risks)} risks**: {len(crit)} critical (exposure ≥ 12) and {len(high)} high (8–11). ")
+    zc = {}
+    for r in risks:
+        zc[AN.risk_zone(AN.exposure(r))[2]] = zc.get(AN.risk_zone(AN.exposure(r))[2], 0) + 1
+    crit_noown = [r["id"] for r in crit if not (r.get("risk_owner") or r.get("risk_manager"))]
+    txt += tr(f"Por zona: {zc.get(('Crítico', 'Critical'), 0)} exigem **ação imediata**, {zc.get(('Alto', 'High'), 0)} **mitigação ativa**, "
+              f"{zc.get(('Médio', 'Medium'), 0)} **planeamento de contingência** e {zc.get(('Baixo', 'Low'), 0)} apenas **monitorização**. ",
+              f"By zone: {zc.get(('Crítico', 'Critical'), 0)} require **immediate action**, {zc.get(('Alto', 'High'), 0)} **active mitigation**, "
+              f"{zc.get(('Médio', 'Medium'), 0)} **contingency planning** and {zc.get(('Baixo', 'Low'), 0)} **monitoring** only. ")
+    if crit_noown:
+        txt += tr(f"⚠️ Riscos críticos sem responsável: {', '.join(crit_noown)}. ", f"⚠️ Critical risks without owner: {', '.join(crit_noown)}. ")
+    accepted_hi = [r["id"] for r in risks if AN.exposure(r) >= 8 and r.get("strategy") == "Accept"]
+    if accepted_hi:
+        txt += tr(f"⚠️ Riscos altos/críticos com estratégia 'Aceitar': {', '.join(accepted_hi)} — incoerente com a ação exigida pela zona. ",
+                  f"⚠️ High/critical risks with an 'Accept' strategy: {', '.join(accepted_hi)} — inconsistent with the action required by their zone. ")
     top = ex[0]
     txt += tr(f"O risco mais exposto é **{top['id']} – {top.get('description', '')[:90]}** (exposição {AN.exposure(top)}). ",
               f"The most exposed risk is **{top['id']} – {top.get('description', '')[:90]}** (exposure {AN.exposure(top)}). ")

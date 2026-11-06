@@ -76,6 +76,7 @@ def _compile(D: dict) -> dict:
     p["finance"].update(D.get("finance", {}))
     p["evaluation"] = [dict(zip(["criterion", "question", "judgement_criteria", "indicator", "source", "method"], e), id=f"E{i+1}") for i, e in enumerate(D.get("evaluation", []))]
     p["quality"] = D.get("quality", {})
+    p["logframe"] = {"preconditions": D.get("preconditions_lf", ""), "terminology": "pcm"}
     p = normalize(p)
     # derived: cash flows (investment from schedule) and EVM tracking history
     from . import schedule as S
@@ -211,6 +212,7 @@ TRADE = {
             "actors": "INE e Alfândegas (produtores), Ministério do Comércio (utilizador político), PME e investigadores (utilizadores), UE (financiador), intermediários de dados (potenciais opositores).",
             "strategic_choices": "Atuar em simultâneo na qualidade (oferta) e na disseminação (procura); não financiar inquéritos novos (outro doador); dados abertos por defeito.",
             "learning": "As PME do interior passam a usar dados oficiais? A redução do prazo de publicação aumenta a utilização? A rotação de técnicos compromete a sustentabilidade?"},
+    "preconditions_lf": "Acordo de financiamento UE–Governo assinado\nEquipa de projeto do INE nomeada\nMemorando de entendimento INE–Alfândegas em vigor",
     "pre": [("C1", "Liderança do INE comprometida com a reforma", "OC1", "Direção do INE mantém-se estável"),
             ("C2", "Utilizadores conhecem os novos produtos de dados", "OC2", "Campanha de comunicação chega às regiões")],
     "activities": [

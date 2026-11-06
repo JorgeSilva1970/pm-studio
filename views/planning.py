@@ -582,6 +582,10 @@ def risks():
             fig.add_annotation(x=opt_label("impact", i), y=opt_label("likelihood", l), text="<b>" + ", ".join(ids) + "</b>", showarrow=False, font=dict(color="white", size=13))
         fig.update_layout(height=380, xaxis_title=tr("Impacto", "Impact"), yaxis_title=tr("Probabilidade", "Likelihood"), margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, width="stretch")
+        legend = "".join(f"<div style='display:flex;gap:8px;align-items:flex-start;margin:3px 0'><span style='min-width:16px;height:16px;border-radius:3px;background:{z[1]};display:inline-block;margin-top:3px'></span>"
+                         f"<span><b>{tr(*z[2])}</b> ({rng}): {tr(*z[3])}</span></div>"
+                         for z, rng in zip(AN.RISK_ZONES, ["12–16", "8–11", "4–7", "1–3"]))
+        st.markdown(f"<div style='font-size:0.85rem'>{legend}</div>", unsafe_allow_html=True)
     with c2:
         df = pd.DataFrame([{"ID": r["id"], tr("Exposição", "Exposure"): AN.exposure(r), tr("Alvo", "Target"): r.get("target_exposure"),
                             tr("Nível", "Level"): AN.risk_level(AN.exposure(r))} for r in sorted(rows, key=lambda r: -AN.exposure(r))])
@@ -591,6 +595,15 @@ def risks():
         fig.add_trace(go.Scatter(x=df["ID"], y=df[tr("Alvo", "Target")], mode="markers", marker=dict(symbol="line-ew-open", size=26, color="#1F3B57", line=dict(width=3)), name=tr("Alvo", "Target")))
         fig.update_layout(height=230, margin=dict(l=10, r=10, t=10, b=10), yaxis=dict(range=[0, 17]), legend=dict(orientation="h"))
         st.plotly_chart(fig, width="stretch")
+    st.markdown(tr("##### Ação exigida por risco (segundo a zona da matriz)", "##### Required action per risk (by matrix zone)"))
+    st.dataframe(pd.DataFrame([{"": "🔴" if AN.exposure(r) >= 12 else "🟠" if AN.exposure(r) >= 8 else "🟡" if AN.exposure(r) >= 4 else "🟢",
+                                "ID": r["id"], tr("Risco", "Risk"): r.get("description", ""), tr("Exposição", "Exposure"): AN.exposure(r),
+                                tr("Ação exigida", "Required action"): AN.risk_action(AN.exposure(r)),
+                                tr("Estratégia escolhida", "Chosen strategy"): opt_label("risk_strategy", r.get("strategy")),
+                                tr("Responsável", "Owner"): r.get("risk_owner") or r.get("risk_manager") or "—"}
+                               for r in sorted(rows, key=lambda r: (-AN.exposure(r), -int(r.get("impact") or 0)))]),
+                 hide_index=True, width="stretch",
+                 column_config={tr("Risco", "Risk"): st.column_config.TextColumn(width="large"), tr("Ação exigida", "Required action"): st.column_config.TextColumn(width="large")})
     ui.interpret(I.risk_text(rows))
     st.markdown(tr("##### Atividades preventivas", "##### Preventive activities"))
     st.caption(tr("As estratégias preventivas reduzem a probabilidade e entram no plano como atividades de apoio.", "Preventive strategies lower likelihood and enter the plan as support activities."))

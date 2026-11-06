@@ -17,7 +17,7 @@ from . import schedule as S
 from .fmt import d, money, num, pct, unit_label
 from .help_texts import SRC
 from .i18n import opt_label, tr
-from .matrix import logframe_html
+from .matrix import logframe_classic_html, logframe_html
 from .model import activity_cost, indicator_dimension, objective_level
 
 VIZ = "https://cdn.jsdelivr.net/npm/@viz-js/viz@3.14.0/lib/viz-standalone.js"
@@ -142,7 +142,9 @@ def build(p: dict, ai_summary: str | None = None) -> str:
 
     # ------------------------------------------------------------------ formulation
     H(3, tr("Formulação — Logic Models", "Formulation — Logic Models"))
-    out.append(f"<h3>{tr('Matriz de Enquadramento Lógico', 'Logical Framework Matrix')}</h3>" + logframe_html(p))
+    out.append(f"<h3>{tr('Matriz do Quadro Lógico — vista clássica 4×4 (PCM)', 'Logical Framework Matrix — classic 4×4 view (PCM)')}</h3>"
+               + logframe_classic_html(p, (p.get("logframe") or {}).get("terminology", "pcm")))
+    out.append(f"<h3>{tr('Matriz do Quadro Lógico — vista alargada (baseline, meta, critério)', 'Logical Framework Matrix — extended view (baseline, target, criterion)')}</h3>" + logframe_html(p))
     out.append(f"<h3>{tr('Modelo lógico', 'Logic model')}</h3>" + _dot(AN.results_chain_dot(p)))
     out.append(f"<h3>{tr('Teoria da Mudança', 'Theory of Change')}</h3>")
     for k, lab in (("vision", tr("Visão", "Vision")), ("context", tr("Contexto", "Context")), ("actors", tr("Atores", "Actors")),
@@ -192,6 +194,7 @@ def build(p: dict, ai_summary: str | None = None) -> str:
         out.append(f"<h3>{tr('Riscos', 'Risks')}</h3>")
         out.append(_df(pd.DataFrame([{"ID": r["id"], tr("Tipo", "Type"): opt_label("risk_type", r["type"]), tr("Risco", "Risk"): r["description"], "P": r["likelihood"], "I": r["impact"],
                                       tr("Exposição", "Exposure"): AN.exposure(r), tr("Alvo", "Target"): r["target_exposure"], tr("Estratégia", "Strategy"): opt_label("risk_strategy", r["strategy"]),
+                                      tr("Ação exigida", "Required action"): AN.risk_action(AN.exposure(r)),
                                       tr("Mitigação proposta", "Proposed mitigation"): r["proposed_mitigation"], tr("Responsável", "Owner"): r["risk_owner"]}
                                      for r in sorted(p["risks"], key=lambda r: -AN.exposure(r))])))
         z = [[i * l for i in range(1, 5)] for l in range(1, 5)]

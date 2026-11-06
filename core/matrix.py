@@ -109,3 +109,101 @@ def logframe_html(p: dict, include_activities: bool = True) -> str:
         rows.append(f"<tr><td class='lvl Input'>{lvl_name['Input']}</td><td>{tr('Materiais · Maquinaria · Mão de obra · Money (4 Ms)', 'Materials · Machinery · Manpower · Money (4 Ms)')}</td>"
                     f"<td colspan='4'>{tr('Orçamento total das atividades (BAC)', 'Total activity budget (BAC)')}: <b>{money(total, cur)}</b></td><td></td><td><small>{crit_name['Input']}</small></td></tr>")
     return CSS + head + "".join(rows) + "</table>"
+
+
+# ----------------------------------------------------------------------------- classic 4×4 view (PCM)
+TERMS = {
+    "pcm": {"Impact": ("Objetivo global", "Overall objective"), "Outcome": ("Objetivo específico", "Specific objective (purpose)"),
+            "Output": ("Resultados", "Results"), "Activity": ("Atividades", "Activities")},
+    "results": {"Impact": ("Impacto", "Impact"), "Outcome": ("Resultado (Outcome)", "Outcome"),
+                "Output": ("Produto (Output)", "Output"), "Activity": ("Atividades", "Activities")},
+}
+
+
+def term(level: str, terminology: str = "pcm") -> str:
+    pt, en = TERMS.get(terminology, TERMS["pcm"])[level]
+    return tr(pt, en)
+
+
+def _ind_compact(i):
+    b = f"{_n(i.get('baseline'))} ({i.get('baseline_year') or '—'})" if i.get("baseline") is not None else "—"
+    t = f"{_n(i.get('target'))} ({i.get('target_year') or '—'})" if i.get("target") is not None else "—"
+    u = f" <small>[{_e(i.get('unit'))}]</small>" if i.get("unit") else ""
+    return f"<b>{_e(i['id'])}</b> {_e(i.get('indicator'))}{u}: {_e(b)} → <b>{_e(t)}</b>"
+
+
+def means_and_costs(p: dict) -> tuple[list[tuple[str, float]], float]:
+    """Means by cost category (from budget lines; activities without lines count as 'manual cost')."""
+    from .i18n import opt_label as ol
+    cat = {}
+    for a in p.get("activities", []):
+        lines = [b for b in p.get("budget", []) if str(b.get("activity_id")) == str(a.get("id"))]
+        if lines:
+            for b in lines:
+                k = ol("cost_category", b.get("category"))
+                cat[k] = cat.get(k, 0.0) + float(b.get("quantity") or 0) * float(b.get("unit_cost") or 0)
+        elif a.get("cost"):
+            k = tr("Outros custos (sem detalhe)", "Other costs (no detail)")
+            cat[k] = cat.get(k, 0.0) + float(a.get("cost") or 0)
+    return sorted(cat.items(), key=lambda kv: -kv[1]), sum(cat.values())
+
+
+def logframe_classic_html(p: dict, terminology: str = "pcm") -> str:
+    """Classic 4-column logframe (PCM 2004): intervention logic | OVIs | sources of verification | assumptions,
+    with Means and Costs in the activities row and Pre-conditions at the bottom."""
+    objs = p.get("objectives", [])
+    inds = p.get("indicators", [])
+    cur = p["meta"].get("currency", "EUR")
+    lvl_of = {str(o["code"]): o["level"] for o in objs}
+    by_obj = {}
+    for i in inds:
+        by_obj.setdefault(str(i.get("objective_code")), []).append(i)
+    # assumptions on the row below the level they condition
+    row_asm = {"Activity": [], "Output": [], "Outcome": []}
+    for h in p.get("assumptions", []):
+        r = MATRIX_ROW_OF_ASSUMPTION.get(lvl_of.get(str(h.get("objective_code") or "")))
+        if r in row_asm:
+            row_asm[r].append(h)
+
+    def asm_cell(level):
+        hs = row_asm.get(level, [])
+        return "<br>".join(f"<b>{_e(h['id'])}</b> {_e(h.get('text'))}" for h in hs) or "<small>—</small>"
+
+    rows = []
+    for lvl in ("Impact", "Outcome", "Output"):
+        items = [o for o in objs if o["level"] == lvl]
+        logic = "<br>".join(f"<span class='code'>{_e(o['code'])}</span> {_e(o.get('text'))}" for o in items) or "<small>—</small>"
+        il = [i for o in items for i in by_obj.get(str(o["code"]), [])]
+        ind = "<br>".join(_ind_compact(i) for i in il) or "<small>—</small>"
+        src = "<br>".join(f"<b>{_e(i['id'])}</b> {_e(i.get('source'))}" + (f" <small>({_e(i.get('frequency'))})</small>" if i.get("frequency") else "") for i in il) or "<small>—</small>"
+        a = "<small>" + tr("(não aplicável)", "(not applicable)") + "</small>" if lvl == "Impact" else asm_cell(lvl)
+        rows.append(f"<tr><td class='lvl {lvl}'>{term(lvl, terminology)}</td><td>{logic}</td><td>{ind}</td><td>{src}</td><td class='asm'>{a}</td></tr>")
+    acts = p.get("activities", [])
+    outs = [o for o in objs if o["level"] == "Output"]
+    parts = []
+    for o in outs:
+        al = [a for a in acts if str(a.get("output_code")) == str(o["code"])]
+        if al:
+            parts.append(f"<span class='code'>{_e(o['code'])}</span> " + "; ".join(f"<b>{_e(a['id'])}</b> {_e(a.get('name'))}" for a in al))
+    other = [a for a in acts if str(a.get("output_code")) not in {str(o["code"]) for o in outs}]
+    if other:
+        parts.append(f"<i>{tr('Apoio', 'Support')}:</i> " + "; ".join(f"<b>{_e(a['id'])}</b> {_e(a.get('name'))}" for a in other))
+    cats, total = means_and_costs(p)
+    roles = sorted({str(a.get("responsible")) for a in acts if a.get("responsible")})
+    means = (f"<b>{tr('Meios', 'Means')}:</b><br>" + "<br>".join(f"• {_e(k)}" for k, _v in cats)
+             + (f"<br>• {tr('Recursos humanos', 'Human resources')}: {_e(', '.join(roles))}" if roles else "")) if cats or roles else "<small>—</small>"
+    from .schedule import contingency_amount
+    cont = contingency_amount(p)
+    costs = (f"<b>{tr('Custos', 'Costs')}:</b><br>" + "<br>".join(f"{_e(k)}: {money(v, cur)}" for k, v in cats)
+             + f"<br><b>{tr('Total', 'Total')}: {money(total, cur)}</b>" + (f"<br><small>+ {tr('contingência', 'contingency')} {money(cont, cur)}</small>" if cont else ""))
+    rows.append(f"<tr><td class='lvl Activity'>{term('Activity', terminology)}</td><td>{'<br>'.join(parts) or '<small>—</small>'}</td>"
+                f"<td>{means}</td><td>{costs}</td><td class='asm'>{asm_cell('Activity')}</td></tr>")
+    pre = (p.get("logframe") or {}).get("preconditions", "")
+    pre_html = "<br>".join(f"• {_e(x.strip())}" for x in str(pre).splitlines() if x.strip()) or "<small>—</small>"
+    rows.append(f"<tr><td colspan='4' style='text-align:right;border:none'><small>{tr('Condições a cumprir antes do arranque das atividades', 'Conditions to be met before activities start')}</small></td>"
+                f"<td class='asm'><b>{tr('Pré-condições', 'Pre-conditions')}</b><br>{pre_html}</td></tr>")
+    head = (f"<table class='lf'><tr><th></th><th>{tr('Lógica de intervenção', 'Intervention logic')}</th>"
+            f"<th>{tr('Indicadores objetivamente verificáveis', 'Objectively verifiable indicators')}</th>"
+            f"<th>{tr('Fontes e meios de verificação', 'Sources and means of verification')}</th>"
+            f"<th>{tr('Pressupostos', 'Assumptions')}</th></tr>")
+    return CSS + head + "".join(rows) + "</table>"
